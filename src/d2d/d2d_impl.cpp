@@ -2,6 +2,7 @@
 #include <d2d1.h>
 #include <dwrite.h>
 #include <cwchar>
+#include <assert.h>
 
 #include "d2d_impl.h"
 
@@ -255,24 +256,43 @@ const FontMetrics* D2DText_GetFontMetrics( )
     return &font_metrics;
 }
 
-HRESULT D2DText_Render( TextEdit* t, RECTF rect )
+void D2DText_StartRender( )
 {
-   HRESULT hr = CreateDeviceResources( );
+    HRESULT hr = CreateDeviceResources( );
+    assert( !FAILED( hr ) );
 
-    if ( FAILED( hr ) )
-        return hr;
+    g_renderTarget->BeginDraw( );
+
+
+    // Clear the background.
+    g_renderTarget->Clear(
+        D2D1::ColorF( 0.1f, 0.1f, 0.1f )
+    );
+
+}
+
+void D2DText_FinishRender( )
+{
+    HRESULT hr = g_renderTarget->EndDraw( );
+
+
+    // The underlying graphics device may need its
+    // render target and brush recreated.
+    if ( hr == D2DERR_RECREATE_TARGET )
+    {
+        ReleaseDeviceResources( );
+    }
+    else
+        assert( !FAILED( hr ) );
+}
+
+void D2DText_Render( TextEdit* t, RECTF rect )
+{
 
     //D2D1_SIZE_F size = g_renderTarget->GetSize( );
     D2D1_SIZE_F size = D2D1::SizeF(
         rect.right - rect.left,
         rect.bottom - rect.top
-    );
-
-    g_renderTarget->BeginDraw( );
-
-    // Clear the background.
-    g_renderTarget->Clear(
-        D2D1::ColorF( 0.1f, 0.1f, 0.1f )
     );
 
     g_renderTarget->SetTransform(
@@ -306,7 +326,7 @@ HRESULT D2DText_Render( TextEdit* t, RECTF rect )
     FLOAT y = 0.0f;
     DWRITE_HIT_TEST_METRICS metrics{};
 
-    hr = layout->HitTestTextPosition(
+    layout->HitTestTextPosition(
         t->cur,
         FALSE,   // Leading edge of this text position
         &x,
@@ -328,10 +348,13 @@ HRESULT D2DText_Render( TextEdit* t, RECTF rect )
         y + metrics.height //- 2.0f
     );
 
-    g_renderTarget->FillRectangle( &line_rect, g_current_line_brush );
+    if ( t->inFocus )
+    {
+        g_renderTarget->FillRectangle( &line_rect, g_current_line_brush );
 
-    if ( t->curFlash )
-        g_renderTarget->FillRectangle( &cursor_rect, g_text_brush );
+        if ( t->curFlash )
+            g_renderTarget->FillRectangle( &cursor_rect, g_text_brush );
+    }
 
     layout->Release( );
 
@@ -353,18 +376,6 @@ HRESULT D2DText_Render( TextEdit* t, RECTF rect )
 
 
     g_renderTarget->PopAxisAlignedClip( );
-    hr = g_renderTarget->EndDraw( );
-
-
-    // The underlying graphics device may need its
-    // render target and brush recreated.
-    if ( hr == D2DERR_RECREATE_TARGET )
-    {
-        ReleaseDeviceResources( );
-        return S_OK;
-    }
-
-    return hr;
 }
 
 // make the font or resize it.

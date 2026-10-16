@@ -14,6 +14,9 @@ typedef struct TextEdit_t {
 	int preferredColumn;
 	bool preferredColumnValid;
 	bool curFlash;
+	bool inFocus;
+	//uint32_t backCol;
+	//uint32_t foreCol;
 } TextEdit;
 
 void TextEdit_Initialise( TextEdit* t );

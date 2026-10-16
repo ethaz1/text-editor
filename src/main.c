@@ -16,12 +16,14 @@
 
 #define ID_TIMER_CUSOR_FLASH 10001
 #define INPUT_SIZE 4096
+#define STATUS_BAR_EXAMPLE_TEXT L"Save files to disk:\nc:/users/ewant/"
 
 const int CURSOR_FLASH_INTERVAL_MS = 500;
 
 TextEdit te, stats;
 RECTF main_edit_rect, status_bar_rect;
 
+TextEdit* te_in_focus = &te;
 
 
 
@@ -31,7 +33,7 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 		case WM_TIMER: {
 			switch ( wparam ) {
 				case ID_TIMER_CUSOR_FLASH: {
-					te.curFlash = !te.curFlash;
+					te_in_focus->curFlash = !te_in_focus->curFlash;
 					InvalidateRect( hwnd, NULL, TRUE );
 					break;
 				}
@@ -41,39 +43,48 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 		case WM_KEYDOWN: {
 			switch ( wparam ) {
 				case VK_LEFT: {
-					if ( te.cur > 0 )
-						te.cur--;
-					te.preferredColumnValid = false;
+					if ( te_in_focus->cur > 0 )
+						te_in_focus->cur--;
+					te_in_focus->preferredColumnValid = false;
 					break;
 				}
 				case VK_RIGHT: {
-					if ( te.cur <= te.last )
-						te.cur++;
-					te.preferredColumnValid = false;
+					if ( te_in_focus->cur <= te_in_focus->last )
+						te_in_focus->cur++;
+					te_in_focus->preferredColumnValid = false;
 					break;
 				}
 				case VK_UP: {
-					TextEdit_MoveVertical( &te, -1 );
+					TextEdit_MoveVertical( te_in_focus, -1 );
 					break;
 				}
 				case VK_DOWN: {
-					TextEdit_MoveVertical( &te, 1 );
+					TextEdit_MoveVertical( te_in_focus, 1 );
 					break;
 				}
 				case VK_DELETE: {
-					TextEdit_DeleteChar( &te, te.cur, false );
+					TextEdit_DeleteChar( te_in_focus, te_in_focus->cur, false );
+					break;
+				}
+				case 192: {
+					if ( GetKeyState( VK_CONTROL ) & 0x8000 ) {
+						// switch between statusbar and main edit
+						te_in_focus->inFocus = !te_in_focus->inFocus;
+						stats.inFocus = !stats.inFocus;
+						te_in_focus = te_in_focus->inFocus ? &te : &stats;
+					}
 					break;
 				}
 				//default: return 0;
 			}
 
 			SetTimer( hwnd, ID_TIMER_CUSOR_FLASH, CURSOR_FLASH_INTERVAL_MS, NULL );
-			te.curFlash = TRUE;
+			te_in_focus->curFlash = TRUE;
 			InvalidateRect( hwnd, NULL, TRUE );
 			return 0;
 		}
 		case WM_CHAR: {
-			TextEdit_HandleCharCode( &te, wparam );
+			TextEdit_HandleCharCode( te_in_focus, wparam );
 			return 0;
 		}
 		case WM_MOUSEWHEEL: {
@@ -87,7 +98,14 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 		case WM_PAINT: {
 			PAINTSTRUCT ps;
 			HDC hdc = BeginPaint( hwnd, &ps );
+
+			D2DText_StartRender( );
+
 			D2DText_Render( &te, main_edit_rect );
+			D2DText_Render( &stats, status_bar_rect );
+			
+			D2DText_FinishRender( );
+
 			EndPaint( hwnd, &ps );
 			return 0;
 		}
@@ -102,6 +120,11 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 			main_edit_rect.bottom = (float)height - ceilf(D2DText_GetFontMetrics( )->lineHeight * 2.0f);
 			main_edit_rect.right = (float)width;
 
+			status_bar_rect.top = main_edit_rect.bottom;
+			status_bar_rect.left = 0.0f;
+			status_bar_rect.bottom = ( float ) height;
+			status_bar_rect.right = ( float ) width;
+
 			return 0;
 		}
 		case WM_DESTROY: {
@@ -115,7 +138,16 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 int __stdcall wWinMain( HINSTANCE inst, HINSTANCE prev_inst, LPWSTR cmd_args, int cmd_show ) {
 
 	TextEdit_Initialise( &te );
+	te_in_focus->inFocus = true;
+
 	TextEdit_Initialise( &stats );
+
+	// insert into stats
+	int size = wcslen( STATUS_BAR_EXAMPLE_TEXT ) * sizeof( uint16_t );
+	memcpy( stats.buf, STATUS_BAR_EXAMPLE_TEXT, size);
+	stats.last = size;
+	stats.cur = stats.last + 1;
+	
 
 	WNDCLASSEX wcex = {0};
 	wcex.cbSize = sizeof( wcex );
@@ -164,5 +196,6 @@ int __stdcall wWinMain( HINSTANCE inst, HINSTANCE prev_inst, LPWSTR cmd_args, in
 	KillTimer( hwnd, ID_TIMER_CUSOR_FLASH );
 	D2DText_Shutdown( );
 	TextEdit_CleanUp( &te );
+	TextEdit_CleanUp( &stats );
 	return 0;
 }

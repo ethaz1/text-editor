@@ -22,7 +22,9 @@ extern "C" {
 
 	void D2DText_Resize( UINT width, UINT height );
 
-	HRESULT D2DText_Render( TextEdit *t, RECTF rect );
+	void D2DText_StartRender( );
+	void D2DText_Render( TextEdit *t, RECTF rect );
+	void D2DText_FinishRender( );
 
 	const FontMetrics* D2DText_GetFontMetrics( );
 
