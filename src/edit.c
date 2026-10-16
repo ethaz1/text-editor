@@ -1,4 +1,5 @@
 #include "edit.h"
+#include "text_file.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -7,7 +8,7 @@
 #include <assert.h>
 #include <stdio.h>
 
-#define INPUT_SIZE 4096
+#define INPUT_SIZE 1'000'000
 
 #define KEY_BACKSPACE	0x08
 #define KEY_ENTER		0x0D
@@ -19,6 +20,7 @@ void TextEdit_Initialise( TextEdit *t ) {
 	t->size = INPUT_SIZE;
 	t->cur = 0;
 	t->last = -1;
+    t->first = 0;
 	t->buf = calloc( INPUT_SIZE, sizeof( WCHAR ) );
     t->preferredColumn = 0;
     t->preferredColumnValid = false;
@@ -299,6 +301,85 @@ void TextEdit_SaveContents( TextEdit* t, uint16_t *path ) {
 
     CloseHandle( file );
     free( utf8_str );
+}
+
+void TextEdit_OpenFile( TextEdit* t, uint16_t* path ) {
+    size_t len = 0;
+    char* data = TextFile_ReadUtf16( path, &len );
+    if ( data != NULL ) {
+        memset( t->buf, 0, t->size );
+        memcpy( t->buf, data, len );
+        t->last = len;
+        free( data );
+    }
+}
+
+
+void TextEdit_Scroll( TextEdit* t, float delta )
+{
+    assert( t != NULL );
+
+    if ( t == NULL || delta == 0.0f )
+        return;
+
+    int length = t->last + 1;
+    int oldFirst = t->first;
+
+    if ( length <= 0 )
+    {
+        t->first = 0;
+        return;
+    }
+
+    // Keep the scroll position within the buffer.
+    if ( t->first < 0 )
+        t->first = 0;
+
+    if ( t->first > length )
+        t->first = length;
+
+    if ( delta > 0.0f )
+    {
+        // Find the beginning of the current line.
+        int i = t->first;
+
+        while ( i > 0 && t->buf[i - 1] != '\n' )
+            i--;
+
+        // Already on the first line.
+        if ( i == 0 )
+        {
+            t->first = 0;
+            return;
+        }
+
+        // Step over the newline preceding the current line.
+        i--;
+
+        // Find the beginning of the previous line.
+        while ( i > 0 && t->buf[i - 1] != '\n' )
+            i--;
+
+        t->first = i;
+    }
+    else
+    {
+        // Find the next newline.
+        int i = t->first;
+
+        while ( i < length && t->buf[i] != '\n' )
+            i++;
+
+        // Move to the character after the newline.
+        if ( i < length )
+            t->first = i + 1;
+    }
+
+    if ( t->first != oldFirst )
+    {
+        //TextEdit_MoveVertical( t, delta > 0.0f ? -1 : 1 );
+    }
+
 }
 
 void TextEdit_CleanUp( TextEdit *t ) {

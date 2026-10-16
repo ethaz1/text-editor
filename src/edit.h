@@ -6,6 +6,7 @@
 
 typedef struct TextEdit_t {
 	int cur;				// cursor position. where the next character goes. visual cursor draws on top of this char.
+	int first;				// position of the first character to appear. changes when scrolling.
 	int last;				// position of the last character typed. -1 if the buffer is empty.
 	unsigned int size;		// max number of characters that can fit in the input buffer.
 	uint16_t* buf;			// where the text lives.
@@ -25,5 +26,7 @@ void TextEdit_HandleCharCode( TextEdit* t, uint64_t key );
 void TextEdit_MoveVertical( TextEdit* t, int direction );
 void TextEdit_DeleteChar( TextEdit* t, int pos, bool backspace );
 void TextEdit_SaveContents( TextEdit* t, uint16_t *path );
+void TextEdit_OpenFile( TextEdit* t, uint16_t* path );
+void TextEdit_Scroll( TextEdit* t, float delta );
 void TextEdit_CleanUp( TextEdit* t );
 

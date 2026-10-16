@@ -314,8 +314,8 @@ void D2DText_Render( TextEdit* t, RECTF rect )
 
     static IDWriteTextLayout* layout = nullptr;
     g_writeFactory->CreateTextLayout(
-        (const WCHAR*)t->buf,
-        len,
+        (const WCHAR*)t->buf+t->first,
+        len - t->first,
         g_textFormat,
         size.width,
         size.height,
@@ -360,8 +360,8 @@ void D2DText_Render( TextEdit* t, RECTF rect )
 
     // Draw white text with a 20-DIP margin.
     g_renderTarget->DrawText(
-        (const WCHAR*)t->buf,
-        len,
+        (const WCHAR*)t->buf + t->first,
+        len - t->first,
         g_textFormat,
         D2D1::RectF(
             0,

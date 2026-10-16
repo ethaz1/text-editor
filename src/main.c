@@ -15,7 +15,7 @@
 #include "edit.h"
 
 #define ID_TIMER_CUSOR_FLASH 10001
-#define INPUT_SIZE 4096
+#define INPUT_SIZE 1'000'000
 #define STATUS_BAR_EXAMPLE_TEXT L"Save files to disk:\nc:/users/ewant/"
 
 const int CURSOR_FLASH_INTERVAL_MS = 500;
@@ -66,12 +66,18 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 					TextEdit_DeleteChar( te_in_focus, te_in_focus->cur, false );
 					break;
 				}
-				case 192: {
+				case 192: {	// tilde
 					if ( GetKeyState( VK_CONTROL ) & 0x8000 ) {
 						// switch between statusbar and main edit
 						te_in_focus->inFocus = !te_in_focus->inFocus;
 						stats.inFocus = !stats.inFocus;
 						te_in_focus = te_in_focus->inFocus ? &te : &stats;
+					}
+					break;
+				}
+				case 'O': {
+					if ( GetKeyState( VK_CONTROL ) & 0x8000 ) {
+						TextEdit_OpenFile( &te, L"edit_copy.c" );
 					}
 					break;
 				}
@@ -93,6 +99,12 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 			if ( LOWORD( wparam ) == MK_CONTROL ) {
 				float delta = GET_WHEEL_DELTA_WPARAM( wparam ) > 0 ? 1.0f : -1.0f;
 				D2DText_OffsetFontSize( delta );
+			}
+			else {
+				TextEdit_Scroll( te_in_focus, ( float ) GET_WHEEL_DELTA_WPARAM( wparam ) / 120.0f );
+				TextEdit_Scroll( te_in_focus, ( float ) GET_WHEEL_DELTA_WPARAM( wparam ) / 120.0f );
+				TextEdit_Scroll( te_in_focus, ( float ) GET_WHEEL_DELTA_WPARAM( wparam ) / 120.0f );
+				InvalidateRect( hwnd, NULL, TRUE );
 			}
 			return 0;
 		}
