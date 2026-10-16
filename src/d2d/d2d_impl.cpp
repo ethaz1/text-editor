@@ -18,6 +18,8 @@ static ID2D1HwndRenderTarget* g_renderTarget = nullptr;
 static ID2D1SolidColorBrush* g_text_brush = nullptr;
 static ID2D1SolidColorBrush* g_current_line_brush = nullptr;
 
+FontMetrics font_metrics;
+
 static float g_font_size = 24.0f;
 
 // Release resources associated with the render target.
@@ -117,12 +119,12 @@ extern "C" BOOL D2DText_Initialize( HWND hwnd )
     }
 
     if ( SUCCEEDED( hr ) )
+        hr = CreateDeviceResources( );
+
+    if ( SUCCEEDED( hr ) )
     {
         D2DText_OffsetFontSize( 0.0 );
     }
-
-    if ( SUCCEEDED( hr ) )
-        hr = CreateDeviceResources( );
 
     if ( FAILED( hr ) )
     {
@@ -248,25 +250,45 @@ extern "C" HRESULT D2DText_Render( const WCHAR* text, const UINT32 len, const BO
 }
 */
 
-HRESULT D2DText_Render( TextEdit* t )
+const FontMetrics* D2DText_GetFontMetrics( )
+{
+    return &font_metrics;
+}
+
+HRESULT D2DText_Render( TextEdit* t, RECTF rect )
 {
    HRESULT hr = CreateDeviceResources( );
 
     if ( FAILED( hr ) )
         return hr;
 
-    D2D1_SIZE_F size = g_renderTarget->GetSize( );
+    //D2D1_SIZE_F size = g_renderTarget->GetSize( );
+    D2D1_SIZE_F size = D2D1::SizeF(
+        rect.right - rect.left,
+        rect.bottom - rect.top
+    );
 
     g_renderTarget->BeginDraw( );
-
-    g_renderTarget->SetTransform(
-        D2D1::Matrix3x2F::Identity( )
-    );
 
     // Clear the background.
     g_renderTarget->Clear(
         D2D1::ColorF( 0.1f, 0.1f, 0.1f )
     );
+
+    g_renderTarget->SetTransform(
+        D2D1::Matrix3x2F::Translation( rect.left, rect.top )
+    );
+
+
+
+    g_renderTarget->PushAxisAlignedClip( D2D1::RectF(
+        0,
+        0,
+        size.width / font_metrics.dpiScale,
+        size.height / font_metrics.dpiScale
+    ), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE );
+
+ 
 
     UINT32 len = t->last == -1 ? 0 : t->last + 1;
 
@@ -321,15 +343,18 @@ HRESULT D2DText_Render( TextEdit* t )
         D2D1::RectF(
             0,
             0,
-            size.width,
-            size.height
+            rect.right,
+            rect.bottom
         ),
         g_text_brush,
-        D2D1_DRAW_TEXT_OPTIONS_NONE,
+        D2D1_DRAW_TEXT_OPTIONS_CLIP,
         DWRITE_MEASURING_MODE_NATURAL
     );
 
+
+    g_renderTarget->PopAxisAlignedClip( );
     hr = g_renderTarget->EndDraw( );
+
 
     // The underlying graphics device may need its
     // render target and brush recreated.
@@ -362,6 +387,35 @@ void D2DText_OffsetFontSize( float off )
     );
 
     g_textFormat->SetWordWrapping( DWRITE_WORD_WRAPPING_NO_WRAP );
+
+    // get font metrics (ones that aren't context specific; global to the font, like font height).
+    D2D1_SIZE_F size = g_renderTarget->GetSize( );
+
+    static IDWriteTextLayout* layout = nullptr;
+    g_writeFactory->CreateTextLayout(
+        L"",
+        0,
+        g_textFormat,
+        size.width,
+        size.height,
+        &layout
+    );
+
+    FLOAT x = 0.0f;
+    FLOAT y = 0.0f;
+    DWRITE_HIT_TEST_METRICS metrics{};
+
+    layout->HitTestTextPosition(
+        0,
+        FALSE,   // Leading edge of this text position
+        &x,
+        &y,
+        &metrics
+    );
+
+    font_metrics.lineHeight = metrics.height;
+    font_metrics.dpi = GetDpiForWindow( g_renderTarget->GetHwnd( ) );
+    font_metrics.dpiScale = font_metrics.dpi / (float)USER_DEFAULT_SCREEN_DPI;
 }
 
 // Release all resources.

@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <math.h>
 
 #include "d2d/d2d_impl.h"
 #include "edit.h"
@@ -18,7 +19,9 @@
 
 const int CURSOR_FLASH_INTERVAL_MS = 500;
 
-TextEdit te;
+TextEdit te, stats;
+RECTF main_edit_rect, status_bar_rect;
+
 
 
 
@@ -84,12 +87,21 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 		case WM_PAINT: {
 			PAINTSTRUCT ps;
 			HDC hdc = BeginPaint( hwnd, &ps );
-			D2DText_Render( &te );
+			D2DText_Render( &te, main_edit_rect );
 			EndPaint( hwnd, &ps );
 			return 0;
 		}
 		case WM_SIZE: {
-			D2DText_Resize( LOWORD( lparam ), HIWORD( lparam ) );
+			int width = LOWORD( lparam );
+			int height = HIWORD( lparam );
+
+			D2DText_Resize( width, height );
+			
+			main_edit_rect.top = 0;
+			main_edit_rect.left = 0;
+			main_edit_rect.bottom = (float)height - ceilf(D2DText_GetFontMetrics( )->lineHeight * 2.0f);
+			main_edit_rect.right = (float)width;
+
 			return 0;
 		}
 		case WM_DESTROY: {
@@ -103,6 +115,7 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 int __stdcall wWinMain( HINSTANCE inst, HINSTANCE prev_inst, LPWSTR cmd_args, int cmd_show ) {
 
 	TextEdit_Initialise( &te );
+	TextEdit_Initialise( &stats );
 
 	WNDCLASSEX wcex = {0};
 	wcex.cbSize = sizeof( wcex );
@@ -134,8 +147,11 @@ int __stdcall wWinMain( HINSTANCE inst, HINSTANCE prev_inst, LPWSTR cmd_args, in
 
 	SetTimer( hwnd, ID_TIMER_CUSOR_FLASH, CURSOR_FLASH_INTERVAL_MS, NULL );
 
-	BOOL value = TRUE;
-	DwmSetWindowAttribute( hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof( value ) );
+	// dark mode titlebar
+	{
+		BOOL value = TRUE;
+		DwmSetWindowAttribute( hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof( value ) );
+	}
 
 	ShowWindow( hwnd, cmd_show );
 
