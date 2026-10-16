@@ -13,6 +13,7 @@ typedef struct TextEdit_t {
 	int col;				// column of the cursor 
 	int preferredColumn;
 	bool preferredColumnValid;
+	bool curFlash;
 } TextEdit;
 
 void TextEdit_Initialise( TextEdit* t );

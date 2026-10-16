@@ -150,6 +150,7 @@ extern "C" void D2DText_Resize( UINT width, UINT height )
 
 
 // Render the specified text.
+/*
 extern "C" HRESULT D2DText_Render( const WCHAR* text, const UINT32 len, const BOOL cursor, const int cursor_pos )
 {
     if ( !text || !g_hwnd || !g_textFormat )
@@ -232,6 +233,101 @@ extern "C" HRESULT D2DText_Render( const WCHAR* text, const UINT32 len, const BO
             D2D1_DRAW_TEXT_OPTIONS_NONE,
             DWRITE_MEASURING_MODE_NATURAL
         );
+
+    hr = g_renderTarget->EndDraw( );
+
+    // The underlying graphics device may need its
+    // render target and brush recreated.
+    if ( hr == D2DERR_RECREATE_TARGET )
+    {
+        ReleaseDeviceResources( );
+        return S_OK;
+    }
+
+    return hr;
+}
+*/
+
+HRESULT D2DText_Render( TextEdit* t )
+{
+   HRESULT hr = CreateDeviceResources( );
+
+    if ( FAILED( hr ) )
+        return hr;
+
+    D2D1_SIZE_F size = g_renderTarget->GetSize( );
+
+    g_renderTarget->BeginDraw( );
+
+    g_renderTarget->SetTransform(
+        D2D1::Matrix3x2F::Identity( )
+    );
+
+    // Clear the background.
+    g_renderTarget->Clear(
+        D2D1::ColorF( 0.1f, 0.1f, 0.1f )
+    );
+
+    UINT32 len = t->last == -1 ? 0 : t->last + 1;
+
+    static IDWriteTextLayout* layout = nullptr;
+    g_writeFactory->CreateTextLayout(
+        (const WCHAR*)t->buf,
+        len,
+        g_textFormat,
+        size.width,
+        size.height,
+        &layout
+    );
+
+    FLOAT x = 0.0f;
+    FLOAT y = 0.0f;
+    DWRITE_HIT_TEST_METRICS metrics{};
+
+    hr = layout->HitTestTextPosition(
+        t->cur,
+        FALSE,   // Leading edge of this text position
+        &x,
+        &y,
+        &metrics
+    );
+
+    D2D1_RECT_F line_rect = D2D1::RectF(
+        0,
+        y,
+        size.width,
+        y + metrics.height
+    );
+
+    D2D1_RECT_F cursor_rect = D2D1::RectF(
+        x,
+        y,
+        x + 3.f,
+        y + metrics.height //- 2.0f
+    );
+
+    g_renderTarget->FillRectangle( &line_rect, g_current_line_brush );
+
+    if ( t->curFlash )
+        g_renderTarget->FillRectangle( &cursor_rect, g_text_brush );
+
+    layout->Release( );
+
+    // Draw white text with a 20-DIP margin.
+    g_renderTarget->DrawText(
+        (const WCHAR*)t->buf,
+        len,
+        g_textFormat,
+        D2D1::RectF(
+            0,
+            0,
+            size.width,
+            size.height
+        ),
+        g_text_brush,
+        D2D1_DRAW_TEXT_OPTIONS_NONE,
+        DWRITE_MEASURING_MODE_NATURAL
+    );
 
     hr = g_renderTarget->EndDraw( );
 

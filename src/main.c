@@ -17,7 +17,6 @@
 #define INPUT_SIZE 4096
 
 const int CURSOR_FLASH_INTERVAL_MS = 500;
-BOOL cursor_drawing = FALSE;
 
 TextEdit te;
 
@@ -29,7 +28,7 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 		case WM_TIMER: {
 			switch ( wparam ) {
 				case ID_TIMER_CUSOR_FLASH: {
-					cursor_drawing = !cursor_drawing;
+					te.curFlash = !te.curFlash;
 					InvalidateRect( hwnd, NULL, TRUE );
 					break;
 				}
@@ -66,7 +65,7 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 			}
 
 			SetTimer( hwnd, ID_TIMER_CUSOR_FLASH, CURSOR_FLASH_INTERVAL_MS, NULL );
-			cursor_drawing = TRUE;
+			te.curFlash = TRUE;
 			InvalidateRect( hwnd, NULL, TRUE );
 			return 0;
 		}
@@ -85,7 +84,7 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 		case WM_PAINT: {
 			PAINTSTRUCT ps;
 			HDC hdc = BeginPaint( hwnd, &ps );
-			D2DText_Render( te.buf, te.last == -1 ? 0 : te.last+1, cursor_drawing, te.cur );
+			D2DText_Render( &te );
 			EndPaint( hwnd, &ps );
 			return 0;
 		}

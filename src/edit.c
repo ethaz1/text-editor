@@ -20,6 +20,7 @@ void TextEdit_Initialise( TextEdit *t ) {
 	t->buf = calloc( INPUT_SIZE, sizeof( WCHAR ) );
     t->preferredColumn = 0;
     t->preferredColumnValid = false;
+    t->curFlash = true;
 
 	if ( t->buf == NULL ) {
 		MessageBoxA( NULL, "Out of memory.", "Error", MB_ICONERROR );
