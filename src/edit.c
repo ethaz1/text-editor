@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <stdio.h>
 
 #define INPUT_SIZE 4096
 
@@ -12,6 +13,7 @@
 #define KEY_ENTER		0x0D
 #define KEY_ESCAPE		0x1B
 #define KEY_TAB			0x09
+#define KEY_SAVE        0x13
 
 void TextEdit_Initialise( TextEdit *t ) {
 	t->size = INPUT_SIZE;
@@ -39,11 +41,25 @@ void TextEdit_HandleCharCode( TextEdit* t, uint64_t key ) {
 			TextEdit_InsertChar( t, '\n', t->cur );
 			break;
 		}
+        case KEY_SAVE: {
+            TextEdit_SaveContents( t, L"test.c" );
+            break;
+        }
+        case KEY_TAB: {
+            TextEdit_InsertChar( t, ( uint16_t ) key, t->cur );     // TODO: allow user to do 4 spaces instead
+            break;
+        }
 		default: {
+            // drop all other special control keys
+            if ( key < 32 && key != '\b' && key != '\r' )
+                return 0;
 			TextEdit_InsertChar( t, (uint16_t)key, t->cur );
 			break;
 		}
 	}
+
+
+
 }
 
 void TextEdit_DeleteChar( TextEdit* t, int pos, bool backspace )
@@ -222,6 +238,67 @@ void TextEdit_InsertChar( TextEdit *t, uint16_t ch, int pos ) {
         t->cur--;
     }
 
+}
+
+void TextEdit_SaveContents( TextEdit* t, uint16_t *path ) {
+    // UTF-16 to UTF-8
+    int bytes = WideCharToMultiByte(
+        CP_UTF8,
+        WC_ERR_INVALID_CHARS,
+        t->buf,
+        t->last+1,
+        NULL,
+        0,
+        NULL,
+        NULL
+    );
+
+    char* utf8_str = malloc( bytes + 1 );
+    if ( utf8_str == NULL ) return;
+
+    int utf8_len = WideCharToMultiByte(
+        CP_UTF8,
+        WC_ERR_INVALID_CHARS,
+        t->buf,
+        t->last+1,
+        utf8_str,
+        bytes,
+        NULL,
+        NULL
+    );
+
+    assert( utf8_len == bytes );
+
+    HANDLE file = CreateFile(
+        path,
+        GENERIC_WRITE,
+        NULL,
+        NULL,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if ( file == INVALID_HANDLE_VALUE ) {
+        assert( 0 );    // TODO: handle bad file
+    }
+
+    DWORD written_to_file = 0;
+
+    BOOL success = WriteFile(
+        file,
+        utf8_str,
+        utf8_len,
+        &written_to_file,
+        NULL
+    );
+
+    if ( success == FALSE ) {
+        assert( 0 );    // TODO: handle file write fail.
+    }
+
+    CloseHandle( file );
+    free( utf8_str );
 }
 
 void TextEdit_CleanUp( TextEdit *t ) {

@@ -24,5 +24,6 @@ void TextEdit_InsertChar( TextEdit* t, uint16_t ch, int pos );
 void TextEdit_HandleCharCode( TextEdit* t, uint64_t key );
 void TextEdit_MoveVertical( TextEdit* t, int direction );
 void TextEdit_DeleteChar( TextEdit* t, int pos, bool backspace );
+void TextEdit_SaveContents( TextEdit* t, uint16_t *path );
 void TextEdit_CleanUp( TextEdit* t );
 

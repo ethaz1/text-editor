@@ -78,6 +78,7 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 				//default: return 0;
 			}
 
+
 			SetTimer( hwnd, ID_TIMER_CUSOR_FLASH, CURSOR_FLASH_INTERVAL_MS, NULL );
 			te_in_focus->curFlash = TRUE;
 			InvalidateRect( hwnd, NULL, TRUE );
