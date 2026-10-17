@@ -242,7 +242,7 @@ void TextEdit_InsertChar( TextEdit *t, uint16_t ch, int pos ) {
 
 }
 
-void TextEdit_SaveContents( TextEdit* t, uint16_t *path ) {
+int TextEdit_SaveContents( TextEdit* t, uint16_t *path ) {
     // UTF-16 to UTF-8
     int bytes = WideCharToMultiByte(
         CP_UTF8,
@@ -282,7 +282,8 @@ void TextEdit_SaveContents( TextEdit* t, uint16_t *path ) {
     );
 
     if ( file == INVALID_HANDLE_VALUE ) {
-        assert( 0 );    // TODO: handle bad file
+        //assert( 0 );    // TODO: handle bad file
+        return TE_SAVE_UNKNOWN_ERROR;
     }
 
     DWORD written_to_file = 0;
@@ -297,10 +298,13 @@ void TextEdit_SaveContents( TextEdit* t, uint16_t *path ) {
 
     if ( success == FALSE ) {
         assert( 0 );    // TODO: handle file write fail.
+        return TE_SAVE_UNKNOWN_ERROR;
     }
 
     CloseHandle( file );
     free( utf8_str );
+
+    return TE_SAVE_SUCCESS;
 }
 
 void TextEdit_OpenFile( TextEdit* t, uint16_t* path ) {
@@ -379,6 +383,32 @@ void TextEdit_Scroll( TextEdit* t, float delta )
     {
         //TextEdit_MoveVertical( t, delta > 0.0f ? -1 : 1 );
     }
+
+}
+
+void TextEdit_MoveHorizontal( TextEdit* t, int c ) {
+    if ( (c < 0 && t->cur > 0) || ( c > 0 && t->cur <= t->last ) )
+        t->cur += c;
+    t->preferredColumnValid = false;
+}
+
+void TextEdit_MoveByWord( TextEdit* t, int dir ) {
+    WCHAR ch;
+    bool stop = false;
+
+    do {
+        TextEdit_MoveHorizontal( t, dir );
+
+        stop = t->buf[t->cur-1] == ' '
+            || t->buf[t->cur] == ' '
+            || t->buf[t->cur] == '\t'
+            || t->cur > 0 && t->buf[t->cur - 1] == '\n'
+            || t->cur <= t->last && t->buf[t->cur + 1] == '\n';
+
+    } while (
+        ( t->cur != 0 && t->cur != t->last+1 ) &&
+        ( !stop )
+        );
 
 }
 

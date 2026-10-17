@@ -13,19 +13,26 @@
 
 #include "d2d/d2d_impl.h"
 #include "edit.h"
+#include "status.h"
 
 #define ID_TIMER_CUSOR_FLASH 10001
 #define INPUT_SIZE 1'000'000
-#define STATUS_BAR_EXAMPLE_TEXT L"Save files to disk:\nc:/users/ewant/"
+#define NORMAL_TEXT L"Save files to disk:\nc:/users/ewant/"
 
 const int CURSOR_FLASH_INTERVAL_MS = 500;
 
-TextEdit te, stats;
+TextEdit te;
 RECTF main_edit_rect, status_bar_rect;
 
 TextEdit* te_in_focus = &te;
+TextEdit* stats = NULL;
 
-
+void swap_focus( ) {
+	// switch between statusbar and main edit
+	te.inFocus = !te.inFocus;
+	stats->inFocus = !stats->inFocus;
+	te_in_focus = te.inFocus ? &te : stats;
+}
 
 LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 	
@@ -41,17 +48,21 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 			return 0;
 		}
 		case WM_KEYDOWN: {
+			bool ctrl_down = GetKeyState( VK_CONTROL ) & 0x8000;
+
 			switch ( wparam ) {
 				case VK_LEFT: {
-					if ( te_in_focus->cur > 0 )
-						te_in_focus->cur--;
-					te_in_focus->preferredColumnValid = false;
+					if ( ctrl_down )
+						TextEdit_MoveByWord( te_in_focus, -1 );
+					else
+						TextEdit_MoveHorizontal( te_in_focus, -1 );
 					break;
 				}
 				case VK_RIGHT: {
-					if ( te_in_focus->cur <= te_in_focus->last )
-						te_in_focus->cur++;
-					te_in_focus->preferredColumnValid = false;
+					if ( ctrl_down )
+						TextEdit_MoveByWord( te_in_focus, 1 );
+					else
+						TextEdit_MoveHorizontal( te_in_focus, 1 );
 					break;
 				}
 				case VK_UP: {
@@ -67,16 +78,13 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 					break;
 				}
 				case 192: {	// tilde
-					if ( GetKeyState( VK_CONTROL ) & 0x8000 ) {
-						// switch between statusbar and main edit
-						te_in_focus->inFocus = !te_in_focus->inFocus;
-						stats.inFocus = !stats.inFocus;
-						te_in_focus = te_in_focus->inFocus ? &te : &stats;
+					if ( ctrl_down ) {
+						swap_focus( );
 					}
 					break;
 				}
 				case 'O': {
-					if ( GetKeyState( VK_CONTROL ) & 0x8000 ) {
+					if ( ctrl_down ) {
 						TextEdit_OpenFile( &te, L"edit_copy.c" );
 					}
 					break;
@@ -91,7 +99,24 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 			return 0;
 		}
 		case WM_CHAR: {
-			TextEdit_HandleCharCode( te_in_focus, wparam );
+			if ( wparam == 0x13 ) {			// Ctrl+s
+				if ( !stats->inFocus ) swap_focus( );
+				StatusBar_HandleEvent( STATUS_EVENT_SAVE, &te );
+				return 0;
+			}
+			else {
+				if ( stats->inFocus ) {		// events requiring the status bar to be in focus.
+					if ( wparam == 0x0D ) {		// Enter
+						StatusBar_HandleEvent( STATUS_EVENT_SUBMIT, &te );
+						return 0;
+					}
+					else if ( wparam == 0x1B ) {	// Escape
+						StatusBar_HandleEvent( STATUS_EVENT_RESET, &te );
+						swap_focus( );	// defocus back to the main text
+					}
+				}
+				TextEdit_HandleCharCode( te_in_focus, wparam );
+			}
 			return 0;
 		}
 		case WM_MOUSEWHEEL: {
@@ -115,7 +140,7 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 			D2DText_StartRender( );
 
 			D2DText_Render( &te, main_edit_rect );
-			D2DText_Render( &stats, status_bar_rect );
+			D2DText_Render( stats, status_bar_rect );
 			
 			D2DText_FinishRender( );
 
@@ -153,13 +178,7 @@ int __stdcall wWinMain( HINSTANCE inst, HINSTANCE prev_inst, LPWSTR cmd_args, in
 	TextEdit_Initialise( &te );
 	te_in_focus->inFocus = true;
 
-	TextEdit_Initialise( &stats );
-
-	// insert into stats
-	int size = wcslen( STATUS_BAR_EXAMPLE_TEXT ) * sizeof( uint16_t );
-	memcpy( stats.buf, STATUS_BAR_EXAMPLE_TEXT, size);
-	stats.last = size;
-	stats.cur = stats.last + 1;
+	stats = StatusBar_Initialise( );
 	
 
 	WNDCLASSEX wcex = {0};
@@ -209,6 +228,7 @@ int __stdcall wWinMain( HINSTANCE inst, HINSTANCE prev_inst, LPWSTR cmd_args, in
 	KillTimer( hwnd, ID_TIMER_CUSOR_FLASH );
 	D2DText_Shutdown( );
 	TextEdit_CleanUp( &te );
-	TextEdit_CleanUp( &stats );
+	StatusBar_CleanUp( );
+	stats = NULL;
 	return 0;
 }
