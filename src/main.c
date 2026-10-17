@@ -85,7 +85,8 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam ) {
 				}
 				case 'O': {
 					if ( ctrl_down ) {
-						TextEdit_OpenFile( &te, L"edit_copy.c" );
+						if ( !stats->inFocus ) swap_focus( );
+						StatusBar_HandleEvent( STATUS_EVENT_OPEN, &te );
 					}
 					break;
 				}
